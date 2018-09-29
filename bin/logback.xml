@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration debug="true" scan="true" scanPeriod="5 seconds">
+
+    <property name="LOGS_DIR" value="logs" />
+    <property name="MAX_FILE_SIZE" value="500MB" />
+    <property name="MAX_HISTORY" value="5" /><!-- days of History -->
+
+    <!-- Rolling Application Support File appender -->
+    <appender name="LOGDEBUG"
+        class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <File>${LOGS_DIR}/logdebug.log</File>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${LOGS_DIR}/logdebug.%d{yyyy-MM-dd}.%i.log.zip</FileNamePattern>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="com.aa.logging.AAComLayout">
+                <rendersPackageName>com.aa.logging.renderer</rendersPackageName>
+            </layout>
+        </encoder>
+    </appender>
+
+    <logger name="org" level="WARN" />
+
+    <root level="INFO">
+        <appender-ref ref="LOGDEBUG" />
+    </root>
+
+</configuration>

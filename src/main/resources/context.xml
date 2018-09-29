@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans
+    xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:int="http://www.springframework.org/schema/integration"
+    xmlns:int-http="http://www.springframework.org/schema/integration/http"
+    xmlns:int-xml="http://www.springframework.org/schema/integration/xml"
+    xmlns:int-ws="http://www.springframework.org/schema/integration/ws"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+      http://www.springframework.org/schema/beans/spring-beans.xsd
+      http://www.springframework.org/schema/integration
+      http://www.springframework.org/schema/integration/spring-integration.xsd
+      http://www.springframework.org/schema/integration/http
+      http://www.springframework.org/schema/integration/http/spring-integration-http.xsd
+      http://www.springframework.org/schema/integration/xml
+      http://www.springframework.org/schema/integration/xml/spring-integration-xml.xsd
+      http://www.springframework.org/schema/integration/ws
+      http://www.springframework.org/schema/integration/ws/spring-integration-ws.xsd">
+
+    <!-- ===================================================================== -->
+	
+    <bean
+        id="qcHttpRequestFactory"
+        class="org.springframework.http.client.HttpComponentsClientHttpRequestFactory">
+        
+        <property name="httpClient">
+            <bean class="org.apache.http.impl.client.DefaultHttpClient">
+                <property name="credentialsProvider">
+                    <bean class="qc.MyCredentialsProvider">
+                        <constructor-arg value="fguidoli" />
+                        <constructor-arg value="password" />
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+    
+    <int:gateway
+        id="qcLoginGateway"
+        service-interface="qc.QCQueryCaller"
+        default-request-channel="qcLoginRequest"
+        default-reply-channel="qcLoginResponse" />
+
+    <int:channel id="qcLoginRequest" />
+    <int:channel id="qcLoginResponse">
+        <int:interceptors>
+            <int:wire-tap channel="qcLogger" />
+        </int:interceptors>
+    </int:channel>
+
+    <int:logging-channel-adapter
+        id="qcLogger"
+        level="INFO" />
+
+    <int-http:outbound-gateway
+        request-channel="qcLoginRequest"
+        url="http://hpqc.aa.com/qcbin/authentication-point/{operation}"
+        http-method="GET"
+        request-factory="qcHttpRequestFactory"
+        expected-response-type="java.lang.String"
+        reply-channel="qcLoginResponse"
+        transfer-cookies="true">
+
+        <int-http:uri-variable
+            name="operation"
+            expression="payload" />
+            
+    </int-http:outbound-gateway>
+
+    <!-- ===================================================================== -->
+
+    <int:gateway
+        id="qcQueryGateway"
+        service-interface="qc.QCQueryCaller"
+        default-request-channel="qcQueryRequest"
+        default-reply-channel="transformedQCResponse" />
+
+    <int:channel id="qcQueryRequest" />
+    <int:channel id="qcQueryResponse">
+        <int:interceptors>
+            <int:wire-tap channel="qcLogger" />
+        </int:interceptors>
+    </int:channel>
+    <int:channel id="transformedQCResponse" />
+    
+    <int:publish-subscribe-channel id="qcQueryRequest"/>
+	<int:publish-subscribe-channel id="qcQueryResponse"/>
+    
+    <int-http:outbound-gateway
+        request-channel="qcQueryRequest"
+        url="http://hpqc.aa.com/qcbin/rest/domains/AACOM/projects/AA_Com_App_Support/customization/entities/defect/fields"
+        http-method="GET"
+        request-factory="qcHttpRequestFactory"
+        expected-response-type="java.lang.String"
+        reply-channel="qcQueryResponse"
+        transfer-cookies="true">
+
+    </int-http:outbound-gateway>
+
+    <bean
+        id="unmarshallingTransformer"
+        class="org.springframework.oxm.jaxb.Jaxb2Marshaller">
+        
+        <property
+            name="classesToBeBound"
+            value="qc.Fields" />
+    </bean>
+    
+    <int-xml:unmarshalling-transformer
+        unmarshaller="unmarshallingTransformer"
+        input-channel="qcQueryResponse"
+        output-channel="transformedQCResponse" />
+
+ <!-- ===================================================================== -->
+	<!-- Aca comienza el query para traer los datos del defecto -->
+
+	<int:gateway
+        id="qcQueryEntitiesGateway"
+        service-interface="qc.QCQueryCaller"
+        default-request-channel="qcQueryRequestEntities"
+        default-reply-channel="transformedQCResponseEntities" />
+
+    <int:channel id="qcQueryRequestEntities" />
+    <int:channel id="qcQueryResponseEntities">
+ 		<int:interceptors>
+            <int:wire-tap channel="qcLogger" />
+        </int:interceptors>
+    </int:channel>
+    <int:channel id="transformedQCResponseEntities" />
+    
+	<int:publish-subscribe-channel id="qcQueryRequestEntities"/>
+	<int:publish-subscribe-channel id="qcQueryResponseEntities"/>
+	
+    <int-http:outbound-gateway
+        request-channel="qcQueryRequestEntities"
+        url="http://hpqc.aa.com/qcbin/rest/domains/AACOM/projects/AA_Com_App_Support/defects?query={query}&amp;fields={emi}"
+        http-method="GET"
+        request-factory="qcHttpRequestFactory"
+        expected-response-type="java.lang.String"
+        reply-channel="qcQueryResponseEntities"
+        transfer-cookies="true">
+
+        <int-http:uri-variable
+            name="query"
+            expression="'{status[&quot;Pending Integration&quot;];}'" />
+            
+        <int-http:uri-variable
+            name="emi"
+            expression="#{qcReporter.QCGetFields()}" /> 
+    </int-http:outbound-gateway>
+    
+    
+    <bean
+        id="QCResults"
+        class="qc.QCResults">
+    </bean>
+    
+    <bean
+        id="unmarshallingTransformerEntities"
+        class="org.springframework.oxm.jaxb.Jaxb2Marshaller">
+        
+        <property
+            name="classesToBeBound"
+            value="qc.Entities" />
+    </bean>
+      
+    <int-xml:unmarshalling-transformer
+        unmarshaller="unmarshallingTransformerEntities"
+        input-channel="qcQueryResponseEntities"
+        output-channel="transformedQCResponseEntities" />
+
+
+	<bean id="qcReporter" class="qc.QCReporter">
+		<property name="qcQueryCaller" ref="qcLoginGateway"/>
+		<property name="qcQueryCaller2" ref="qcQueryEntitiesGateway"/>
+		<property name="qcQueryCaller3" ref="qcQueryGateway"/>
+	</bean>
+	
+<!-- ===================================================================== -->
+	<!-- Aca comienza el query a Anthill Pro -->
+
+ 	<int:gateway id="ahpQueryGateway"
+        service-interface="anthill.AHPQueryCaller">
+        <int:method name="getMyProjects"
+        	request-channel="ahpQueryRequest"
+        	reply-channel="ahpQueryResponse"> 
+        </int:method>
+	</int:gateway>
+	
+    <int:channel id="ahpQueryRequest"/>
+    <int:channel id="ahpQueryResponse"/>
+    
+    <bean id="ahpTransformer" class="org.springframework.oxm.xmlbeans.XmlBeansMarshaller"> 
+        <property name="validating" value="false"/> 
+     </bean>
+                             
+    <int-ws:outbound-gateway id="AntHillOutbound"
+                             request-channel="ahpQueryRequest"
+    						 reply-channel="ahpQueryResponse"
+    						 marshaller="ahpTransformer"
+    						 unmarshaller="ahpTransformer"
+        					 uri="https://10.88.11.73:8443/services/Dashboard"/>
+
+	<bean id="ahpReporter" class="anthill.AHPReporter">
+		<property name="ahpQueryCaller" ref="ahpQueryGateway"/>
+	</bean>
+<!-- =========================================================================== -->
+</beans>

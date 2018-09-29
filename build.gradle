@@ -1,0 +1,83 @@
+apply plugin: 'eclipse'
+apply plugin: 'java'
+apply plugin: 'application'
+
+mainClassName = 'Main'
+
+repositories {
+    mavenLocal()
+    //mavenCentral()
+    maven { url "http://aadfwlapdv47.dev.aadevelop.com/nexus/content/repositories/thirdparty" }
+    maven { url "http://aadfwlapdv47.dev.aadevelop.com/nexus/content/repositories/AAArtifacts" }
+    maven { url "http://aadfwlapdv47.dev.aadevelop.com/nexus/content/repositories/AASnapshotArtifacts" }
+    maven { url "http://aadfwlapdv47.dev.aadevelop.com/nexus/content/repositories/spring.io.snapshot" }
+    maven { url "http://aadfwlapdv47.dev.aadevelop.com/nexus/content/repositories/central" }
+    maven { url "http://aadfwlapdv47.dev.aadevelop.com/nexus/content/repositories/jackson-mapper-asl" }
+    maven { url "http://aadfwlapdv47.dev.aadevelop.com/nexus/content/repositories/repo.springsource.org" }
+    maven { url "http://aadfwlapdv47.dev.aadevelop.com/nexus/content/groups/public" }
+}
+
+dependencies {
+    compile 'org.springframework.integration:spring-integration-core:4.1.0.RELEASE'
+    compile 'org.springframework.integration:spring-integration-http:4.1.0.RELEASE'
+    compile 'org.springframework.integration:spring-integration-xml:4.1.0.RELEASE'
+    compile 'org.springframework.integration:spring-integration-ws:4.1.0.RELEASE'
+    compile 'org.apache.httpcomponents:httpclient:4.3.6'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.4.3'
+    compile 'org.apache.xmlbeans:xmlbeans:2.4.0'
+    compile 'org.apache.axis2:axis2:1.6.2'
+    compile 'org.apache.ws.commons.axiom:axiom-api:1.2.5'
+    compile 'org.apache.ws.commons.axiom:axiom-impl:1.2.6'
+    compile files('lib/ef.jar')
+
+    compile 'javax.mail:mail:1.4.7'
+
+    compile group: "com.aa.logging", name: "aalogging", version: "2.0.5", changing: true
+
+    testCompile 'junit:junit:4.11'
+    testCompile 'org.easymock:easymock:3.1'
+}
+
+eclipse.project.file.withXml { provider -> ignoreDerivedResources(provider.asNode()) }
+
+
+task afterEclipseImport(description: "Post processing after project generation", group: "IDE") {
+
+    ext.srcFile = file(".project")
+    inputs.file srcFile
+    outputs.dir srcFile
+    onlyIf { srcFile.exists() }
+    doLast {
+        def projectDescription = new XmlParser().parse(srcFile)
+        ignoreDerivedResources(projectDescription)
+        def writer = new FileWriter(srcFile)
+        def printer = new XmlNodePrinter(new PrintWriter(writer))
+        printer.setPreserveWhitespace(true)
+        printer.print(projectDescription)
+    }
+}
+
+def ignoreDerivedResources(projectDescription, directories = [
+            "build", "gradle", "target", "test-output", "business-services",
+            "flow", "provider-customerhub", "provider-database", "shared", "web"
+        ]) {
+    def count = directories.count { file(it).exists() }
+    if (count > 0) {
+        def filter = projectDescription
+                .appendNode("filteredResources")
+                .appendNode("filter")
+        filter.appendNode("id", System.currentTimeMillis().toString().trim())
+        filter.appendNode("type", "26")
+        filter.appendNode("name")
+        def matcher = filter.appendNode("matcher")
+        matcher.appendNode("id", "org.eclipse.ui.ide.orFilterMatcher")
+        def arguments = matcher.appendNode("arguments")
+        directories.each {
+            if (file(it).exists()) {
+                def dirMatcher = arguments.appendNode("matcher")
+                dirMatcher.appendNode("id", "org.eclipse.ui.ide.multiFilter")
+                dirMatcher.appendNode("arguments", "1.0-projectRelativePath-matches-false-false-${it}")
+            }
+        }
+    }
+}

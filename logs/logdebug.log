@@ -1,0 +1,17 @@
+
+================================================================================
+Mon Mar 16 2015     11:46:43 ART    Warning      [AbstractAutowireCapableBeanFactory.initializeBean() : BeanCreationException] Exception encountered during context initialization - cancelling refresh attempt
+	------------------------------
+	ROOT CAUSE is:
+	java.lang.ExceptionInInitializerError
+	------------------------------
+	DOMAIN EXCCEPTION is:
+	org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ahpQueryGateway': Invocation of init method failed; nested exception is java.lang.ExceptionInInitializerError
+	------------------------------
+	EVENT CONTEXT is:
+	Exception encountered during context initialization - cancelling refresh attempt
+================================================================================
+Mon Mar 16 2015     12:13:31 ART    Warning      [RestTemplate.handleResponseError()] GET request for "http://hpqc.aa.com/qcbin/rest/domains/AACOM/projects/AA_Com_App_Support/defects?query=%7Bstatus[%22Pending%20Integration%22];%7D&fields=null" resulted in 500 (Internal Server Error); invoking error handler
+	------------------------------
+	EVENT CONTEXT is:
+	GET request for "http://hpqc.aa.com/qcbin/rest/domains/AACOM/projects/AA_Com_App_Support/defects?query=%7Bstatus[%22Pending%20Integration%22];%7D&fields=null" resulted in 500 (Internal Server Error); invoking error handler
